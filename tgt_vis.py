@@ -52,7 +52,7 @@ from astropy.utils.exceptions import AstropyWarning
 
 class compute_visibility():
 
-    def __init__(self,targets_coordinates,fileout=None,report=False,sampling_interval_days=1.):
+    def __init__(self,targets_coordinates,fileout=None,report=False,interval_sampling_days=None,interval_start_time=None,interval_duration_days=None):
         
         if isinstance(targets_coordinates, list):
             self.targets_coordinates = targets_coordinates
@@ -61,8 +61,11 @@ class compute_visibility():
 
         self.fileout = fileout
         self.report = report
-        self.t_1year = self.set_t_1year(sampling_interval_days)
-        self.sun_coord = get_body('Sun',self.t_1year)   # get coordinate object for the Sun for each day of the year
+        self.interval = {'sampling_days':interval_sampling_days,
+                         'start_time':interval_start_time,
+                         'duration_days':interval_duration_days}
+        self.sampled_times = self.set_sampled_times(self.interval)
+        self.sun_coord = get_body('Sun',self.sampled_times)   # get coordinate object for the Sun for each day of the year
         self.min_sun_angle = (90. - 36.) * u.deg   
         self.max_sun_angle = (90. + 36.) * u.deg
         self.df_results = self.initialize_dataframe()
@@ -79,7 +82,7 @@ class compute_visibility():
 
     def initialize_dataframe(self):
         radec_string = ['({}, {})'.format(coords.ra.to_string(u.hour), coords.dec.to_string(u.degree, alwayssign=True)) for coords in self.targets_coordinates]
-        time_string  = [self.format_time(time) for time in self.t_1year]
+        time_string  = [self.format_time(time) for time in self.sampled_times]
         index_levels = [radec_string,time_string]
         index_names  = ['(RA, Dec)', 'DOY']
         multi_index  = pd.MultiIndex.from_product(index_levels, names=index_names)
@@ -119,20 +122,42 @@ class compute_visibility():
         return preamble
 
 
-    def set_t_1year(self,sampling_interval_days):
+    def set_sampled_times(self,interval):
  
         '''
-        setting up times and Sun coordinates only needs to be done once at the start
-        define 1-day intervals, starting Jan 1, 2024
-        if this date is in the future, this will generate a 'dubious date' warning message
+        define the array of Time object at which the visitbility will be sampled.
+        If a date is in the future, this will generate a 'dubious date' warning message
         the reason is that it is unknown how many leap seconds will be needed in the future.
         the results will still be valid
         '''
 
-        t_start_str = ['2024-01-01T00:00:00.0']
-        t_start = Time(t_start_str,format='isot', scale='utc')
+        if interval['start_time'] is None: 
+            t_start_str = ['2024-01-01T00:00:00.0']
+            t_start = Time(t_start_str,format='isot', scale='utc')
+        elif isinstance(interval['start_time'], Time) == False:
+            if isinstance(interval['start_time'], str):
+                t_start = Time(interval['start_time'],format='isot', scale='utc')
+            else:
+                print('Start time needs to be a astropy.Time object of a string')
+                assert False
+        else:
+            t_start = interval['start_time']
         
-        return t_start+np.arange(0.,365.,sampling_interval_days)*u.d
+        if interval['duration_days'] is None:
+            t_end = 365.
+        else:
+            t_end = interval['duration_days']
+        
+        if interval['sampling_days'] is None:
+            t_step = 1.
+        else:
+            t_step = interval['sampling_days']
+
+        if t_step > t_end:
+            print('sampling interval cannot exceeed total duration')
+            assert False
+        
+        return t_start+np.arange(0.,t_end,t_step)*u.d
 
 
     def get_good_angles(self):
@@ -146,8 +171,6 @@ class compute_visibility():
             self.df_results.loc[pd.IndexSlice[self.df_results.index.levels[0][i],:],'separation'] = sun_angle
             self.df_results.loc[pd.IndexSlice[self.df_results.index.levels[0][i],:],'Sun_RA'] = self.sun_coord.ra
             self.df_results.loc[pd.IndexSlice[self.df_results.index.levels[0][i],:],'Sun_Dec'] = self.sun_coord.dec
-            print(self.df_results.index.levels[0][i])
-            print(target_coordinates)
 
     def get_roll_pa_sunang(self):
 
