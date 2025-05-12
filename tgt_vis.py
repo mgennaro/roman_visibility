@@ -138,7 +138,7 @@ class compute_visibility():
             if isinstance(interval['start_time'], str):
                 t_start = Time(interval['start_time'],format='isot', scale='utc')
             else:
-                print('Start time needs to be a astropy.Time object of a string')
+                print('Start time needs to be a astropy.Time object or a string')
                 assert False
         else:
             t_start = interval['start_time']
