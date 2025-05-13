@@ -97,7 +97,7 @@ class compute_visibility():
         """Converts a datetime object's time to DOY.ddddd """
         datetime = time_object.datetime
         decimal_hours = datetime.hour + datetime.minute/ 60. + datetime.second/3600
-        return datetime.strftime("%j")+'.'+'{:7.5f}'.format(decimal_hours/24)[2:]
+        return datetime.strftime("%Y")+'-'+datetime.strftime("%j")+'.'+'{:7.5f}'.format(decimal_hours/24)[2:]
 
 
 
