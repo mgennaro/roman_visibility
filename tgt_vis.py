@@ -48,6 +48,7 @@ from astropy import units as u
 import pandas as pd
 import warnings
 from astropy.utils.exceptions import AstropyWarning
+import matplotlib.pyplot as plt
 
 
 class compute_visibility():
@@ -266,3 +267,38 @@ class compute_visibility():
             self.df_results.loc[pd.IndexSlice[self.df_results.index.levels[0][i],:],'sunang_x'] = sunang_x
             self.df_results.loc[pd.IndexSlice[self.df_results.index.levels[0][i],:],'sunang_y'] = sunang_y
             self.df_results.loc[pd.IndexSlice[self.df_results.index.levels[0][i],:],'sunang_z'] = sunang_z
+
+
+    def plot_SA_vs_DOY(self,plot_list=None):
+        
+        f,ax  = plt.subplots(1,1,figsize=(9,6))
+                
+        if plot_list is None:
+            plot_list  = self.df_results.index.unique(level=0)
+            
+        for idx, new_df in self.df_results.groupby(level=0):
+            if idx in plot_list:
+            
+                x = np.array([doy.split('-')[1] for doy in new_df.index.get_level_values(1)],dtype=np.float64)
+                y = new_df['separation'].values
+                line, = ax.plot(x,y,label=idx)
+            
+                for ythr in [54,126]:
+                    d = y-ythr
+                    cross=(np.sign(d*np.roll(d,1))<1)[1:]
+                    x1s = 0.5*(x[1:]+x[:-1])[cross]
+                    for x1 in x1s:
+                        ax.axvline(x1,color=line.get_color(),linestyle=':')
+            
+        ax.set_xlabel('DOY')
+        ax.set_ylabel('Sun Angle')
+        ax.axhline(54,linestyle='--',color='gray')
+        ax.axhline(126,linestyle='--',color='gray')
+        ax.set_ylim(0,180)
+        ax.text(0, 50, 'Not allowed', horizontalalignment='right', verticalalignment='top',rotation='vertical')
+        ax.text(0, 130, 'Not allowed', horizontalalignment='right', verticalalignment='bottom',rotation='vertical')
+        ax.text(0, 90, 'Allowed', horizontalalignment='right', verticalalignment='center',rotation='vertical')
+        
+        
+        ax.legend(ncol=2)
+        
